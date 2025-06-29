@@ -13,28 +13,9 @@ export function activate(context: vscode.ExtensionContext) {
 	// The command has been defined in the package.json file
 	// Now provide the implementation of the command with registerCommand
 	// The commandId parameter must match the command field in package.json
-	const disposable = vscode.commands.registerCommand('mini-utils.helloWorld', () => {
-		// The code you place here will be executed every time your command is executed
-		// Display a message box to the user
-		vscode.window.showInformationMessage('Hello World from mini-utils006!');
-	});
-
-	context.subscriptions.push(disposable);
-
-	const proxyShowCommands = vscode.commands.registerCommand('mini-utils.proxyShowCommands', () => {
-		// 在这里执行你自己的代码
-		vscode.window.showInformationMessage('mini-utils: Command palette is about to open!');
-		console.log('mini-utils: Intercepted workbench.action.showCommands');
-
-		// 然后执行原始命令
-		vscode.commands.executeCommand('workbench.action.showCommands');
-	});
-	context.subscriptions.push(proxyShowCommands);
-
-	const editorListener = vscode.window.onDidChangeActiveTextEditor((editor) => {
-		changeIME();
-	});
-	context.subscriptions.push(editorListener);
+	registerHelloCammand(context);
+	registerProxyShowCammand(context);
+	registerEditorChangeListener(context);
 
 	// const stateDisposable = vscode.window.onDidChangeWindowState((state) => {
 	// 	vscode.window.showInformationMessage(`mini-utils: onDidChangeWindowState.state=>${state}`);
@@ -77,20 +58,9 @@ export function activate(context: vscode.ExtensionContext) {
 	// 	}
 	// });
 
-	// 根据 cursorStyle 的值来确定 neovim 现在处于什么模式
-	// 经测试
-	// cursorStyle 2 normal mode
-	// cursorStyle 1 insert mo
-	// cursorStyle 4 visual mode
-	context.subscriptions.push(vscode.window.onDidChangeTextEditorOptions(async (e: vscode.TextEditorOptionsChangeEvent) => {
-		// vscode.window.showInformationMessage(`cursorStyle:${e.options.cursorStyle}`);
-		const cursorStyle = e.options.cursorStyle;
-		if (cursorStyle == 2) {
-			changeIME();
-		} else if (cursorStyle == 4) {
-			changeIME();
-		}
-	}));
+	subscribeToTextEditorOptions(context);
+
+	registerRemoveConstCammand(context);
 
 
 
@@ -177,6 +147,51 @@ export function activate(context: vscode.ExtensionContext) {
 	// });
 	// const originExecuteCommand = vscode.commands.executeCommand
 	// vscode.commands.executeCommand = myExecuteCommand;
+}
+
+function registerEditorChangeListener(context: vscode.ExtensionContext) {
+	const editorListener = vscode.window.onDidChangeActiveTextEditor((editor) => {
+		changeIME();
+	});
+	context.subscriptions.push(editorListener);
+}
+
+// 根据 cursorStyle 的值来确定 neovim 现在处于什么模式
+// 经测试
+// cursorStyle 2 normal mode
+// cursorStyle 1 insert mo
+// cursorStyle 4 visual mode
+function subscribeToTextEditorOptions(context: vscode.ExtensionContext) {
+	context.subscriptions.push(vscode.window.onDidChangeTextEditorOptions(async (e: vscode.TextEditorOptionsChangeEvent) => {
+		// vscode.window.showInformationMessage(`cursorStyle:${e.options.cursorStyle}`);
+		const cursorStyle = e.options.cursorStyle;
+		if (cursorStyle == 2) {
+			changeIME();
+		} else if (cursorStyle == 4) {
+			changeIME();
+		}
+	}));
+}
+
+function registerProxyShowCammand(context: vscode.ExtensionContext) {
+	const proxyShowCommands = vscode.commands.registerCommand('mini-utils.proxyShowCommands', () => {
+		// 在这里执行你自己的代码
+		vscode.window.showInformationMessage('mini-utils: Command palette is about to open!');
+		console.log('mini-utils: Intercepted workbench.action.showCommands');
+
+		// 然后执行原始命令
+		vscode.commands.executeCommand('workbench.action.showCommands');
+	});
+	context.subscriptions.push(proxyShowCommands);
+}
+
+function registerHelloCammand(context: vscode.ExtensionContext) {
+	const disposable = vscode.commands.registerCommand('mini-utils.helloWorld', () => {
+		// The code you place here will be executed every time your command is executed
+		// Display a message box to the user
+		vscode.window.showInformationMessage('Hello World from mini-utils006!');
+	});
+	context.subscriptions.push(disposable);
 }
 
 function myExecuteCommand<T = unknown>(command: string, ...rest: any[]): Thenable<T> {
@@ -445,8 +460,64 @@ class CommandInterceptionManager {
 	}
 }
 
+function registerRemoveConstCammand(context: vscode.ExtensionContext) {
+	context.subscriptions.push(
+		vscode.commands.registerCommand('mini-utils.removeConstInScope', async () => {
+			const editor = vscode.window.activeTextEditor;
+			if (!editor) return;
+			const doc = editor.document;
+			if (doc.languageId !== 'dart') {
+				vscode.window.showWarningMessage('📍 当前不是 Dart 文件');
+				return;
+			}
 
+			const cursor = editor.selection.active;
+			const symbols = await vscode.commands.executeCommand<vscode.DocumentSymbol[]>(
+				'vscode.executeDocumentSymbolProvider',
+				doc.uri
+			);
+			if (!symbols) {
+				vscode.window.showErrorMessage('⚠️ 无法获取文档符号');
+				return;
+			}
 
+			function findSymbol(syms: vscode.DocumentSymbol[]): vscode.DocumentSymbol | null {
+				for (const sym of syms) {
+					if (sym.range.contains(cursor)) {
+						const child = findSymbol(sym.children);
+						return child ?? sym;
+					}
+				}
+				return null;
+			}
 
-// This method is called when your extension is deactivated
-export function deactivate() { }
+			const sym = findSymbol(symbols);
+			if (!sym) {
+				vscode.window.showInformationMessage('🔍 无法定位当前组件');
+				return;
+			}
+
+			const startLine = sym.range.start.line;
+			if (startLine === 0) {
+				vscode.window.showInformationMessage('⚠️ 组件前没有内容');
+				return;
+			}
+
+			const lineText = doc.lineAt(startLine - 1).text;
+			const constMatch = lineText.match(/\bconst\s*$/);
+			if (!constMatch) {
+				vscode.window.showInformationMessage('📎 组件前没有 const');
+				return;
+			}
+
+			const startPos = new vscode.Position(startLine - 1, lineText.indexOf('const'));
+			const endPos = startPos.translate(0, 'const'.length);
+			const edit = vscode.TextEdit.delete(new vscode.Range(startPos, endPos));
+
+			const we = new vscode.WorkspaceEdit();
+			we.set(doc.uri, [edit]);
+			const ok = await vscode.workspace.applyEdit(we);
+			vscode.window.showInformationMessage(ok ? '✅ 删除 const 成功' : '❌ 删除失败');
+		})
+	);
+}

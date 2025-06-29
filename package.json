@@ -21,6 +21,10 @@
       {
         "command": "mini-utils.proxyShowCommands",
         "title": "Proxy Show Commands"
+      },
+      {
+        "command": "mini-utils.removeConstInScope",
+        "title": "Remove const in current Dart scope"
       }
     ]
   },
