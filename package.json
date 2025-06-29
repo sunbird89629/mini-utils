@@ -17,6 +17,10 @@
       {
         "command": "mini-utils.helloWorld",
         "title": "Hello World"
+      },
+      {
+        "command": "mini-utils.proxyShowCommands",
+        "title": "Proxy Show Commands"
       }
     ]
   },

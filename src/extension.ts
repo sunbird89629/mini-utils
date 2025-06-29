@@ -21,6 +21,16 @@ export function activate(context: vscode.ExtensionContext) {
 
 	context.subscriptions.push(disposable);
 
+	const proxyShowCommands = vscode.commands.registerCommand('mini-utils.proxyShowCommands', () => {
+		// 在这里执行你自己的代码
+		vscode.window.showInformationMessage('mini-utils: Command palette is about to open!');
+		console.log('mini-utils: Intercepted workbench.action.showCommands');
+
+		// 然后执行原始命令
+		vscode.commands.executeCommand('workbench.action.showCommands');
+	});
+	context.subscriptions.push(proxyShowCommands);
+
 	const editorListener = vscode.window.onDidChangeActiveTextEditor((editor) => {
 		changeIME();
 	});
