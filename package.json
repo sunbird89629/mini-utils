@@ -33,8 +33,12 @@
         "title": "test show custom modal dialog"
       },
       {
-        "command": "mini-utils.selectDartFunction",
+        "command": "mini-utils.selectFunction",
         "title": "select dart language function"
+      },
+      {
+        "command": "mini-utils.selectClass",
+        "title": "select dart language class"
       }
     ]
   },

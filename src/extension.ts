@@ -18,47 +18,56 @@ export function activate(context: vscode.ExtensionContext) {
 	registerEditorChangeListener(context);
 	subscribeToTextEditorOptions(context);
 	registerRemoveConstCammand(context);
-	registMethodSelectAction(context);
+	registSelectMethodAction(context);
+	registSelectClassAction(context);
 }
 
-function registMethodSelectAction(context: vscode.ExtensionContext) {
-	const disposable = vscode.commands.registerCommand('mini-utils.selectDartFunction', async () => {
-		const editor = vscode.window.activeTextEditor;
-		if (!editor) return;
-
-		const uri = editor.document.uri;
-		const position = editor.selection.active;
-
-		// 发送 LSP Request
-		const symbols = await vscode.commands.executeCommand<any[]>(
-			'vscode.executeDocumentSymbolProvider',
-			uri
-		);
-
-		if (!symbols) {
-			vscode.window.showWarningMessage('无法获取 Dart 方法信息');
-			return;
-		}
-
-		const flatSymbols = flattenSymbols(symbols);
-		const currentSymbol = flatSymbols.find(sym => sym.range && sym.kind == 5 && within(sym.range, position));
-
-		if (currentSymbol) {
-			const range = new vscode.Range(
-				currentSymbol.range.start.line,
-				currentSymbol.range.start.character,
-				currentSymbol.range.end.line,
-				currentSymbol.range.end.character
-			);
-			editor.selection = new vscode.Selection(range.start, range.end);
-			editor.revealRange(range, vscode.TextEditorRevealType.InCenter);
-		} else {
-			vscode.window.showInformationMessage('当前未找到方法');
-		}
-	});
+function registSelectMethodAction(context: vscode.ExtensionContext) {
+	const disposable = vscode.commands.registerCommand('mini-utils.selectFunction', async () => selectSymbolByPositionAndType(5));
 	context.subscriptions.push(disposable);
 }
 
+function registSelectClassAction(context: vscode.ExtensionContext) {
+	const disposable = vscode.commands.registerCommand('mini-utils.selectClass', async () => selectSymbolByPositionAndType(4));
+	context.subscriptions.push(disposable);
+}
+
+
+
+async function selectSymbolByPositionAndType(type: number) {
+	const editor = vscode.window.activeTextEditor;
+	if (!editor) return;
+
+	const uri = editor.document.uri;
+	const position = editor.selection.active;
+
+	// 发送 LSP Request
+	const symbols = await vscode.commands.executeCommand<any[]>(
+		'vscode.executeDocumentSymbolProvider',
+		uri
+	);
+
+	if (!symbols) {
+		vscode.window.showWarningMessage('无法获取 Dart 方法信息');
+		return;
+	}
+
+	const flatSymbols = flattenSymbols(symbols);
+	const currentSymbol = flatSymbols.find(sym => sym.range && sym.kind == type && within(sym.range, position));
+
+	if (currentSymbol) {
+		const range = new vscode.Range(
+			currentSymbol.range.start.line,
+			currentSymbol.range.start.character,
+			currentSymbol.range.end.line,
+			currentSymbol.range.end.character
+		);
+		editor.selection = new vscode.Selection(range.start, range.end);
+		editor.revealRange(range, vscode.TextEditorRevealType.InCenter);
+	} else {
+		vscode.window.showInformationMessage('当前未找到方法');
+	}
+}
 
 function flattenSymbols(symbols: any[]): any[] {
 	const result: any[] = [];
